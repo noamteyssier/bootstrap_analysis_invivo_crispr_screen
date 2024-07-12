@@ -1,5 +1,6 @@
 # rescreener.plotting
 
+import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import TYPE_CHECKING, Tuple, Optional
@@ -39,6 +40,8 @@ class BootstrapPlot:
         self.ylabel = ylabel
         self.title = title
         self.xtick_rotation = False
+        self.extra = None
+        self.extra_kwargs = None
 
         # plt args
         self.plt_kwargs = dict(
@@ -47,6 +50,13 @@ class BootstrapPlot:
         )
 
         self.grid_kwargs = {}
+
+    def plot_extra(self):
+        """
+        Plots an extra layer on the plot if the attribute is set
+        """
+        if self.extra is not None:
+            self.extra(**self.extra_kwargs)
 
     def plot(
         self,
@@ -73,6 +83,8 @@ class BootstrapPlot:
 
         if self.xtick_rotation:
             plt.xticks(rotation=90)
+
+        self.plot_extra()
 
         plt.tight_layout()
 
@@ -101,9 +113,11 @@ class Violins(BootstrapPlot):
         alpha: float = 0.8,
         linestyle: str = "-",
         fill: bool = False,
+        draw_median_list: bool = True,
         inner_kwargs: dict = {},
         grid_kwargs: dict = {},
         sns_kwargs: dict = {},
+        pointplot_kwargs: dict = {},
         **kwargs,
     ):
         """
@@ -119,6 +133,7 @@ class Violins(BootstrapPlot):
             alpha (float, optional): Transparency of the violin plot. Defaults to 0.8.
             linestyle (str, optional): Style of the violin plot outline. Defaults to "-".
             fill (bool, optional): Whether to fill the violin plot. Defaults to False.
+            draw_median_list (bool): Whether to draw a pointplot to link the medians. Defaults to True.
             inner_kwargs (dict, optional): Additional kwargs for inner plot elements. Defaults to {}.
             grid_kwargs (dict, optional): Additional kwargs for grid. Defaults to {}.
             sns_kwargs (dict, optional): Additional kwargs for seaborn plot. Defaults to {}.
@@ -148,6 +163,19 @@ class Violins(BootstrapPlot):
             fill=fill,
             **sns_kwargs,
         )
+
+        if draw_median_list:
+            self.extra = sns.pointplot
+            self.extra_kwargs = dict(
+                data=bsa.overlaps.group_by("subset").agg(pl.col("frac_overlapping").median()),
+                x="subset",
+                y="frac_overlapping",
+                color="darkred",
+                markers="o",
+                linestyles="-",
+                linewidth=1,
+             )
+            self.extra_kwargs.update(pointplot_kwargs)
 
         # grid args
         self.grid_kwargs = dict(
