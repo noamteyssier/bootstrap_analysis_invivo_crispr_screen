@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Tuple, Optional
 if TYPE_CHECKING:
     from .analysis import BootstrapAnalysis
 
+
 class BootstrapPlot:
     def __init__(
         self,
@@ -31,10 +32,10 @@ class BootstrapPlot:
         self.grid_kwargs = {}
 
     def plot(
-            self,
-            show: bool = True,
-            save: Optional[str] = None,
-        ):
+        self,
+        show: bool = True,
+        save: Optional[str] = None,
+    ):
         plt.figure(**self.plt_kwargs)
         self.seaborn(
             **self.sns_kwargs,
@@ -45,7 +46,7 @@ class BootstrapPlot:
         plt.xlabel(self.xlabel)
         plt.ylabel(self.ylabel)
         plt.title(self.title)
-        
+
         if self.xtick_rotation:
             plt.xticks(rotation=90)
 
@@ -55,6 +56,7 @@ class BootstrapPlot:
             plt.savefig(save)
         if show:
             plt.show()
+
 
 class Violins(BootstrapPlot):
     def __init__(
@@ -74,7 +76,7 @@ class Violins(BootstrapPlot):
         **kwargs,
     ):
         super().__init__(xlabel, ylabel, title, **kwargs)
-        
+
         self.seaborn = sns.violinplot
 
         # inner args
@@ -107,6 +109,7 @@ class Violins(BootstrapPlot):
         )
         self.grid_kwargs.update(grid_kwargs)
 
+
 class Recovery(BootstrapPlot):
     def __init__(
         self,
@@ -116,8 +119,12 @@ class Recovery(BootstrapPlot):
         color: str = "darkcyan",
         sns_kwargs: dict = {},
     ):
-        super().__init__(xlabel, ylabel, title=f"Distribution of gene significance across bootstraps (n={bsa.total_tests})")
-        
+        super().__init__(
+            xlabel,
+            ylabel,
+            title=f"Distribution of gene significance across bootstraps (n={bsa.total_tests})",
+        )
+
         self.seaborn = sns.barplot
         self.sns_kwargs = dict(
             data=bsa.recovery,

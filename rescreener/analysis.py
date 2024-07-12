@@ -101,7 +101,7 @@ class BootstrapAnalysis:
             )
             .sort(["subset", "replicate"])
         )
-    
+
     def _measure_hit_recovery(self) -> pl.DataFrame:
         """
         Calculates how often a hit in the standard is observed across all bootstraps
