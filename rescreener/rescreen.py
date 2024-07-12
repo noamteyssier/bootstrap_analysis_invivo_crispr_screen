@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 
 from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX, SUBSET_NAME_PREFIX
 
+
 class Rescreener:
     """
     A class for performing CRISPR screen analysis on full and subset data.

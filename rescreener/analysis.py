@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX
 
+
 class BootstrapAnalysis:
     """
     A class for analyzing bootstrap results from CRISPR screen data.

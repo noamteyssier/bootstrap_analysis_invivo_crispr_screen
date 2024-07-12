@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Tuple, Optional
 if TYPE_CHECKING:
     from .analysis import BootstrapAnalysis
 
+
 class BootstrapPlot:
     """
     Base class for creating bootstrap plots using seaborn and matplotlib.
-    
+
     This class provides a foundation for creating various types of plots
     related to bootstrap analysis results.
     """
@@ -80,10 +81,11 @@ class BootstrapPlot:
         if show:
             plt.show()
 
+
 class Violins(BootstrapPlot):
     """
     Class for creating violin plots to visualize bootstrap analysis results.
-    
+
     This class extends BootstrapPlot to create violin plots showing the
     distribution of overlapping hits in bootstraps compared to a standard.
     """
@@ -156,10 +158,11 @@ class Violins(BootstrapPlot):
         )
         self.grid_kwargs.update(grid_kwargs)
 
+
 class Recovery(BootstrapPlot):
     """
     Class for creating bar plots to visualize gene significance recovery across bootstraps.
-    
+
     This class extends BootstrapPlot to create bar plots showing the proportion
     of significant tests for each gene across bootstrap iterations.
     """
