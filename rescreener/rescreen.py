@@ -10,8 +10,14 @@ from tqdm.auto import tqdm
 
 from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX, SUBSET_NAME_PREFIX
 
-
 class Rescreener:
+    """
+    A class for performing CRISPR screen analysis on full and subset data.
+
+    This class handles the setup, validation, and execution of CRISPR screen
+    analysis for both the full dataset and bootstrapped subsets.
+    """
+
     def __init__(
         self,
         table_path: str,
@@ -21,6 +27,17 @@ class Rescreener:
         prefix: str = "bootstraps",
         overwrite: bool = False,
     ):
+        """
+        Initialize the Rescreener object.
+
+        Args:
+            table_path (str): Path to the input count matrix file.
+            reference_libraries (List[str]): List of reference library names.
+            test_libraries (Optional[List[str]], optional): List of test library names. Defaults to None.
+            exclude_samples (Optional[List[str]], optional): List of samples to exclude. Defaults to None.
+            prefix (str, optional): Prefix for output directory. Defaults to "bootstraps".
+            overwrite (bool, optional): Whether to overwrite existing output. Defaults to False.
+        """
         self.table_path = table_path
         self._columns = self._fetch_columns()
 
@@ -39,7 +56,13 @@ class Rescreener:
 
     def _fetch_columns(self):
         """
-        returns the columns in the table and validates the expected structure
+        Fetch and validate the columns from the input count matrix.
+
+        Returns:
+            List[str]: List of column names from the input file.
+
+        Raises:
+            ValueError: If the input file does not have the expected column structure.
         """
         # Only load in a little of the matrix to match headers
         columns = pd.read_csv(self.table_path, nrows=5, sep="\t").columns.to_list()
@@ -53,6 +76,18 @@ class Rescreener:
         return columns
 
     def _build_test_libraries(self, exclude_samples: Optional[List[str]]) -> List[str]:
+        """
+        Build a list of test libraries, excluding specified samples and reference libraries.
+
+        Args:
+            exclude_samples (Optional[List[str]]): List of samples to exclude.
+
+        Returns:
+            List[str]: List of test library names.
+
+        Raises:
+            ValueError: If no treatment libraries are found after exclusions.
+        """
         exclusion = set(exclude_samples) if exclude_samples is not None else set()
         [exclusion.add(n) for n in self.reference_libraries]
         [exclusion.add(n) for n in ["Guide", "Gene"]]
@@ -64,6 +99,12 @@ class Rescreener:
         return inclusion
 
     def _validate_sample_names(self):
+        """
+        Validate that all reference and test library names are present in the input file.
+
+        Raises:
+            ValueError: If any reference or test sample is missing from the input file.
+        """
         for name in self.reference_libraries:
             if name not in self._columns[2:]:
                 raise ValueError(
@@ -78,7 +119,10 @@ class Rescreener:
 
     def _validate_crispr_screen(self):
         """
-        Ensures that `crispr_screen` is in the $PATH and will error out otherwise
+        Validate that the `crispr_screen` command is available in the system PATH.
+
+        Raises:
+            RuntimeError: If `crispr_screen` is not found in the PATH.
         """
         if shutil.which("crispr_screen") is None:
             raise RuntimeError(
@@ -87,10 +131,13 @@ class Rescreener:
 
     def _initialize_output_dir(self):
         """
-        Initializes the output directory and overwrites an existing one if the overwrite flag is provided
+        Initialize the output directory structure.
 
-        # regex
-        ./{prefix}/{full,subsets}
+        This method creates the main output directory and subdirectories for full and subset analyses.
+
+        Raises:
+            ValueError: If no prefix is provided.
+            FileExistsError: If the output directory already exists and overwrite is False.
         """
         if self.prefix is None:
             raise ValueError(
@@ -117,7 +164,9 @@ class Rescreener:
 
     def run_original(self):
         """
-        runs `crispr_screen` on the full set of test samples
+        Run CRISPR screen analysis on the full set of test samples.
+
+        This method executes the `crispr_screen` command on the complete dataset.
         """
         print("Starting crispr_screen...")
         Rescreener._run_crispr_screen(
@@ -135,9 +184,17 @@ class Rescreener:
         seed=42,
     ):
         """
-        runs `crispr_screen` on all bootstraps
-        """
+        Run CRISPR screen analysis on bootstrapped subsets of the test samples.
 
+        This method creates and analyzes multiple subsets of the test libraries,
+        with varying sizes and repetitions.
+
+        Args:
+            step_value (int, optional): Step size for increasing subset size. Defaults to 1.
+            num_reps (int, optional): Number of repetitions for each subset size. Defaults to 50.
+            seed (int, optional): Random seed for reproducibility. Defaults to 42.
+        """
+        np.random.seed(seed)
         cohorts = {}
 
         # Iterate over subsets of incrementing size
@@ -178,6 +235,21 @@ class Rescreener:
         reference_libraries: List[str],
         test_libraries: List[str],
     ) -> Tuple[bytes, bytes]:
+        """
+        Execute the CRISPR screen analysis command.
+
+        This static method constructs and runs the `crispr_screen` command
+        with the provided parameters.
+
+        Args:
+            table_path (str): Path to the input count matrix file.
+            output_prefix (str): Prefix for output files.
+            reference_libraries (List[str]): List of reference library names.
+            test_libraries (List[str]): List of test library names.
+
+        Returns:
+            Tuple[bytes, bytes]: Stdout and stderr output from the command execution.
+        """
         args = []
         args.append("crispr_screen")
         args.append("test")
@@ -196,6 +268,15 @@ class Rescreener:
 
     @staticmethod
     def _check_crispr_screen() -> Tuple[bytes, bytes]:
+        """
+        Check the version of the installed CRISPR screen tool.
+
+        This static method runs the `crispr_screen --version` command to verify
+        the installation and get version information.
+
+        Returns:
+            Tuple[bytes, bytes]: Stdout and stderr output from the command execution.
+        """
         args = []
         args.append("crispr_screen")
         args.append("--version")

@@ -8,14 +8,28 @@ from tqdm import tqdm
 
 from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX
 
-
 class BootstrapAnalysis:
+    """
+    A class for analyzing bootstrap results from CRISPR screen data.
+
+    This class handles loading and analyzing data from full and subset CRISPR screens,
+    calculating overlaps between bootstraps and a standard set, and measuring hit recovery.
+    """
+
     def __init__(
         self,
         directory: str,
         standard: Optional[str] = None,
         fdr: float = 0.1,
     ):
+        """
+        Initialize the BootstrapAnalysis object.
+
+        Args:
+            directory (str): Path to the directory containing full and subset analysis results.
+            standard (Optional[str], optional): Path to a file containing standard hits. Defaults to None.
+            fdr (float, optional): False Discovery Rate threshold for considering hits. Defaults to 0.1.
+        """
         (self.directory, self.full_dir, self.subset_dir) = self._validate_directory(
             directory
         )
@@ -36,6 +50,18 @@ class BootstrapAnalysis:
         print("Analysis loaded.")
 
     def _validate_directory(self, directory):
+        """
+        Validate the provided directory structure.
+
+        Args:
+            directory (str): Path to the main directory.
+
+        Returns:
+            Tuple[str, str, str]: Validated paths for main, full, and subset directories.
+
+        Raises:
+            ValueError: If any of the expected directories do not exist.
+        """
         directory = os.path.abspath(directory)
         full_dir = os.path.join(directory, FULL_DIR)
         subset_dir = os.path.join(directory, SUBSET_DIR)
@@ -52,6 +78,15 @@ class BootstrapAnalysis:
         )
 
     def _load_standard(self, standard: Optional[str]) -> pl.DataFrame:
+        """
+        Load the standard hits dataset.
+
+        Args:
+            standard (Optional[str]): Path to a file containing standard hits.
+
+        Returns:
+            pl.DataFrame: DataFrame containing standard hits.
+        """
         if standard is not None:
             filename = standard
         else:
@@ -62,6 +97,12 @@ class BootstrapAnalysis:
         return BootstrapAnalysis._load_hits_dataframe(filename, self.fdr)
 
     def _load_bootstraps(self) -> pl.DataFrame:
+        """
+        Load all bootstrap results from the subset directory.
+
+        Returns:
+            pl.DataFrame: Concatenated DataFrame of all bootstrap results.
+        """
         hit_files = glob(
             os.path.join(
                 self.subset_dir,
@@ -89,7 +130,10 @@ class BootstrapAnalysis:
 
     def _measure_overlap(self) -> pl.DataFrame:
         """
-        Calculates the overlap between the standard and each bootstrap as a number and a fraction
+        Calculate the overlap between the standard and each bootstrap.
+
+        Returns:
+            pl.DataFrame: DataFrame containing overlap information for each bootstrap.
         """
         print("Measuring set overlaps...")
         in_set = self.standard.select("gene").to_series().unique()
@@ -104,7 +148,10 @@ class BootstrapAnalysis:
 
     def _measure_hit_recovery(self) -> pl.DataFrame:
         """
-        Calculates how often a hit in the standard is observed across all bootstraps
+        Calculate how often a hit in the standard is observed across all bootstraps.
+
+        Returns:
+            pl.DataFrame: DataFrame containing hit recovery information for each gene.
         """
         print("Measuring hit recovery...")
         in_set = self.standard.select("gene").to_series().unique()
@@ -122,4 +169,14 @@ class BootstrapAnalysis:
         filename: str,
         fdr: float,
     ) -> pl.DataFrame:
+        """
+        Load a hits dataframe from a file and filter based on FDR.
+
+        Args:
+            filename (str): Path to the file containing hit data.
+            fdr (float): False Discovery Rate threshold for filtering hits.
+
+        Returns:
+            pl.DataFrame: Filtered DataFrame containing hits.
+        """
         return pl.read_csv(filename, separator="\t").filter(pl.col("fdr") < fdr)
