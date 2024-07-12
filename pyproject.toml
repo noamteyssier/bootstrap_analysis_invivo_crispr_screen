@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "rescreener"
+version = "0.1.0"
+description = "A method of performing bootstraps of crispr screens to measure robustness of results"
+authors = ["noamteyssier <22600644+noamteyssier@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^2.0.0"
+pandas = "^2.2.2"
+seaborn = "^0.13.2"
+tqdm = "^4.66.4"
+polars = "^1.1.0"
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.2.3"
+ruff = "^0.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
