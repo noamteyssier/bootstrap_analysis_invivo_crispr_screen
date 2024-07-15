@@ -24,6 +24,10 @@ class BootstrapPlot:
         title: str,
         figsize: Tuple[int, int] = (10, 5),
         dpi: int = 150,
+        font_family: str = "sans-serif",
+        font_size: int = 6,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
     ):
         """
         Initialize a BootstrapPlot object.
@@ -42,6 +46,15 @@ class BootstrapPlot:
         self.xtick_rotation = False
         self.extra = None
         self.extra_kwargs = None
+        self.font_family = font_family
+        self.font_size = font_size
+
+
+        h, w = figsize
+        figsize = (
+            height if height is not None else h,
+            width if width is not None else w,
+        )
 
         # plt args
         self.plt_kwargs = dict(
@@ -70,7 +83,12 @@ class BootstrapPlot:
             show (bool, optional): Whether to display the plot. Defaults to True.
             save (Optional[str], optional): File path to save the plot. Defaults to None.
         """
+    
         plt.figure(**self.plt_kwargs)
+        # Set font to Arial and font size to 6
+        plt.rcParams['font.family'] = self.font_family
+        plt.rcParams['font.size'] = self.font_size
+
         self.seaborn(
             **self.sns_kwargs,
         )
@@ -202,6 +220,8 @@ class Recovery(BootstrapPlot):
         ylabel: str = "Proportion of Significant Tests",
         color: str = "darkcyan",
         sns_kwargs: dict = {},
+        relabel_tss: bool = True,
+        **kwargs,
     ):
         """
         Initialize a Recovery plot object.
@@ -217,7 +237,13 @@ class Recovery(BootstrapPlot):
             xlabel,
             ylabel,
             title=f"Distribution of gene significance across bootstraps (n={bsa.total_tests})",
+            **kwargs,
         )
+
+        if relabel_tss:
+            bsa.recovery = bsa.recovery.with_columns(
+                pl.col("gene").str.replace("_P1", "").str.replace("_P2", "")
+            )
 
         self.seaborn = sns.barplot
         self.sns_kwargs = dict(
