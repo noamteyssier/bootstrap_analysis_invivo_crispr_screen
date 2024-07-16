@@ -1,9 +1,11 @@
 # rescreener.plotting
 
+from typing import TYPE_CHECKING, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
-import matplotlib.pyplot as plt
-from typing import TYPE_CHECKING, Tuple, Optional
+from matplotlib.font_manager import FontProperties
 
 if TYPE_CHECKING:
     from .analysis import BootstrapAnalysis
@@ -48,7 +50,7 @@ class BootstrapPlot:
         self.extra_kwargs = None
         self.font_family = font_family
         self.font_size = font_size
-
+        self.italicize_genes = False
 
         h, w = figsize
         figsize = (
@@ -83,11 +85,11 @@ class BootstrapPlot:
             show (bool, optional): Whether to display the plot. Defaults to True.
             save (Optional[str], optional): File path to save the plot. Defaults to None.
         """
-    
+
         plt.figure(**self.plt_kwargs)
         # Set font to Arial and font size to 6
-        plt.rcParams['font.family'] = self.font_family
-        plt.rcParams['font.size'] = self.font_size
+        plt.rcParams["font.family"] = self.font_family
+        plt.rcParams["font.size"] = self.font_size
 
         self.seaborn(
             **self.sns_kwargs,
@@ -101,6 +103,22 @@ class BootstrapPlot:
 
         if self.xtick_rotation:
             plt.xticks(rotation=90)
+
+        if self.italicize_genes:
+            ax = plt.gca()
+            fontstyle = FontProperties()
+            fontstyle.set_style("italic")
+
+            # Get current tick locations and labels
+            locations = ax.get_xticks()
+            labels = [item.get_text() for item in ax.get_xticklabels()]
+
+            # Clear current tick labels
+            ax.set_xticks([])
+
+            # Set new tick locations and labels with italic font
+            ax.set_xticks(locations)
+            ax.set_xticklabels(labels, fontproperties=fontstyle)
 
         self.plot_extra()
 
@@ -185,14 +203,16 @@ class Violins(BootstrapPlot):
         if draw_median_list:
             self.extra = sns.pointplot
             self.extra_kwargs = dict(
-                data=bsa.overlaps.group_by("subset").agg(pl.col("frac_overlapping").median()),
+                data=bsa.overlaps.group_by("subset").agg(
+                    pl.col("frac_overlapping").median()
+                ),
                 x="subset",
                 y="frac_overlapping",
                 color="darkred",
                 markers="o",
                 linestyles="-",
                 linewidth=1,
-             )
+            )
             self.extra_kwargs.update(pointplot_kwargs)
 
         # grid args
@@ -221,6 +241,7 @@ class Recovery(BootstrapPlot):
         color: str = "darkcyan",
         sns_kwargs: dict = {},
         relabel_tss: bool = True,
+        italicize_genes: bool = True,
         **kwargs,
     ):
         """
@@ -254,3 +275,4 @@ class Recovery(BootstrapPlot):
             **sns_kwargs,
         )
         self.xtick_rotation = True
+        self.italicize_genes = italicize_genes
