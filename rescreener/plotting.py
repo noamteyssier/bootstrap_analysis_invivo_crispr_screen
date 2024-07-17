@@ -51,6 +51,7 @@ class BootstrapPlot:
         self.font_family = font_family
         self.font_size = font_size
         self.italicize_genes = False
+        self.ylim = None
 
         h, w = figsize
         figsize = (
@@ -120,6 +121,9 @@ class BootstrapPlot:
             ax.set_xticks(locations)
             ax.set_xticklabels(labels, fontproperties=fontstyle)
 
+        if self.ylim is not None:
+            plt.ylim(self.ylim)
+
         self.plot_extra()
 
         plt.tight_layout()
@@ -149,6 +153,7 @@ class Violins(BootstrapPlot):
         alpha: float = 0.8,
         linestyle: str = "-",
         fill: bool = False,
+        ylim: Tuple[float, float] = (0, 1),
         draw_median_list: bool = True,
         inner_kwargs: dict = {},
         grid_kwargs: dict = {},
@@ -178,6 +183,7 @@ class Violins(BootstrapPlot):
         super().__init__(xlabel, ylabel, title, **kwargs)
 
         self.seaborn = sns.violinplot
+        self.ylim = ylim
 
         # inner args
         self.sns_inner_kwargs = dict(
