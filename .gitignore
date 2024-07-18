@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 
 bootstraps/**
+figures/*.zip
+tables/*.zip
