@@ -1,12 +1,13 @@
 # rescreener.analysis
 
 import os
-import polars as pl
-from typing import Optional
 from glob import glob
+from typing import Optional
+
+import polars as pl
 from tqdm import tqdm
 
-from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX
+from ._constants import FULL_DIR, FULL_NAME_PREFIX, SUBSET_DIR
 
 
 class BootstrapAnalysis:
@@ -164,6 +165,23 @@ class BootstrapAnalysis:
             .with_columns((pl.col("num_tests") / self.total_tests).alias("frac_tests"))
             .sort("frac_tests")
         )
+
+    def export_table(self, table: str, filename: str, separator="\t", **kwargs):
+        """
+        Export a table to a file.
+
+        Args:
+            table (str): Name of the table to export.
+            filename (str): Path to the file to write the table to.
+        """
+        if table == "overlaps":
+            dataframe = self.overlaps
+        elif table == "recovery":
+            dataframe = self.recovery
+        else:
+            raise ValueError(f"Unknown table name: {table}")
+
+        dataframe.write_csv(filename, separator=separator, **kwargs)
 
     @staticmethod
     def _load_hits_dataframe(
