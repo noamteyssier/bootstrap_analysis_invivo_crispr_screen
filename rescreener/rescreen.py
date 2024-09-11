@@ -1,14 +1,16 @@
 # rescreener.rescreen
 
+import multiprocessing
 import os
 import shutil
+from subprocess import PIPE, Popen
+from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Tuple
-from subprocess import Popen, PIPE
 from tqdm.auto import tqdm
 
-from ._constants import FULL_DIR, SUBSET_DIR, FULL_NAME_PREFIX, SUBSET_NAME_PREFIX
+from ._constants import FULL_DIR, FULL_NAME_PREFIX, SUBSET_DIR, SUBSET_NAME_PREFIX
 
 
 class Rescreener:
@@ -26,7 +28,11 @@ class Rescreener:
         test_libraries: Optional[List[str]] = None,
         exclude_samples: Optional[List[str]] = None,
         prefix: str = "bootstraps",
+        aggregation_method: str = "geopagg",
+        use_product: bool = False,
+        min_base_mean: Optional[int] = None,
         overwrite: bool = False,
+        n_threads: int = -1,
     ):
         """
         Initialize the Rescreener object.
@@ -37,6 +43,7 @@ class Rescreener:
             test_libraries (Optional[List[str]], optional): List of test library names. Defaults to None.
             exclude_samples (Optional[List[str]], optional): List of samples to exclude. Defaults to None.
             prefix (str, optional): Prefix for output directory. Defaults to "bootstraps".
+            aggregation_method (str, optional): Aggregation method for the CRISPR screen analysis. Defaults to "geopagg".
             overwrite (bool, optional): Whether to overwrite existing output. Defaults to False.
         """
         self.table_path = table_path
@@ -51,8 +58,13 @@ class Rescreener:
 
         self.prefix = prefix
         self.overwrite = overwrite
+        self.aggregation_method = aggregation_method
+        self.use_product = use_product
+        self.min_base_mean = min_base_mean
+        self.n_threads = n_threads
 
         self._validate_crispr_screen()
+        self._validate_aggregation_method()
         self._initialize_output_dir()
 
     def _fetch_columns(self):
@@ -130,6 +142,19 @@ class Rescreener:
                 "Unable to find `crispr_screen` in `$PATH` - you will need to install it. Refer to https://noamteyssier.github.io/crispr_screen/install.html for details."
             )
 
+    def _validate_aggregation_method(self):
+        """
+        Validate the provided aggregation method.
+
+        Raises:
+            ValueError: If the aggregation method is not one of the supported options.
+        """
+        supported_methods = ["geopagg", "rra", "inc"]
+        if self.aggregation_method not in supported_methods:
+            raise ValueError(
+                f"Aggregation method {self.aggregation_method} is not supported. Choose from {supported_methods}."
+            )
+
     def _initialize_output_dir(self):
         """
         Initialize the output directory structure.
@@ -175,6 +200,9 @@ class Rescreener:
             os.path.join(self._full_dir, FULL_NAME_PREFIX),
             self.reference_libraries,
             self.test_libraries,
+            aggregation_method=self.aggregation_method,
+            use_product=self.use_product,
+            min_base_mean=self.min_base_mean,
         )
         print("Done.")
 
@@ -196,38 +224,39 @@ class Rescreener:
             seed (int, optional): Random seed for reproducibility. Defaults to 42.
         """
         np.random.seed(seed)
-        cohorts = {}
 
-        # Iterate over subsets of incrementing size
-        for subset_size in tqdm(
-            np.arange(1, len(self.test_libraries), step_value),
-            desc="Running subsets",
-            position=1,
-        ):
-            # Iterate over each instantiated boostrap
-            for rep_index in tqdm(
-                np.arange(num_reps), desc="Running boostraps", position=0
-            ):
-                # Randomly sample n test libraries with replacement
+        # Prepare arguments for parallel execution
+        args_list = []
+        for subset_size in np.arange(1, len(self.test_libraries), step_value):
+            for rep_index in range(num_reps):
                 treatment_subset = np.random.choice(
                     self.test_libraries, subset_size, replace=True
-                )
+                ).tolist()
+                name = f"{SUBSET_NAME_PREFIX}_{subset_size}_{rep_index}"
+                args_list.append((name, treatment_subset))
 
-                # Save the subset
-                name = "{}_{}_{}".format(
-                    SUBSET_NAME_PREFIX,
-                    subset_size,
-                    rep_index,
+        # Use multiprocessing to run the analyses in parallel
+        total_threads = self.n_threads if self.n_threads > 0 else None
+        with multiprocessing.Pool(processes=total_threads) as pool:
+            list(
+                tqdm(
+                    pool.imap(self._run_single_bootstrap, args_list),
+                    total=len(args_list),
+                    desc="Running bootstraps",
                 )
-                cohorts[name] = treatment_subset
+            )
 
-                # run the screen
-                Rescreener._run_crispr_screen(
-                    self.table_path,
-                    os.path.join(self._subset_dir, name),
-                    self.reference_libraries,
-                    treatment_subset,
-                )
+    def _run_single_bootstrap(self, args):
+        name, treatment_subset = args
+        Rescreener._run_crispr_screen(
+            self.table_path,
+            os.path.join(self._subset_dir, name),
+            self.reference_libraries,
+            treatment_subset,
+            aggregation_method=self.aggregation_method,
+            use_product=self.use_product,
+            min_base_mean=self.min_base_mean,
+        )
 
     @staticmethod
     def _run_crispr_screen(
@@ -235,6 +264,9 @@ class Rescreener:
         output_prefix: str,
         reference_libraries: List[str],
         test_libraries: List[str],
+        aggregation_method: str = "geopagg",
+        use_product: bool = False,
+        min_base_mean: Optional[int] = None,
     ) -> Tuple[bytes, bytes]:
         """
         Execute the CRISPR screen analysis command.
@@ -262,6 +294,15 @@ class Rescreener:
         args.extend(reference_libraries)
         args.append("-t")
         args.extend(test_libraries)
+        args.append("-g")
+        args.append(aggregation_method)
+        args.append("-T")
+        args.append("1")
+        if use_product:
+            args.append("--use-product")
+        if min_base_mean is not None:
+            args.append("--min-base-mean")
+            args.append(str(min_base_mean))
 
         cmd = Popen(args, stdout=PIPE, stderr=PIPE)
         stdout, stderr = cmd.communicate()

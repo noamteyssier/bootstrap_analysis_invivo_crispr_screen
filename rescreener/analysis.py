@@ -49,6 +49,9 @@ class BootstrapAnalysis:
         # Measures standard gene representation in bootstraps
         self.recovery = self._measure_hit_recovery()
 
+        # Measures standard gene representation in boostraps of a specific size
+        self.subset_recovery = self._measure_subset_recovery()
+
         print("Analysis loaded.")
 
     def _validate_directory(self, directory):
@@ -148,22 +151,45 @@ class BootstrapAnalysis:
             .sort(["subset", "replicate"])
         )
 
-    def _measure_hit_recovery(self) -> pl.DataFrame:
+    def _measure_hit_recovery(self, cohort_size: Optional[int] = None) -> pl.DataFrame:
         """
         Calculate how often a hit in the standard is observed across all bootstraps.
 
         Returns:
             pl.DataFrame: DataFrame containing hit recovery information for each gene.
         """
-        print("Measuring hit recovery...")
+        if cohort_size is None:
+            print("Measuring hit recovery...")
         in_set = self.standard.select("gene").to_series().unique()
         self.total_tests = self.bootstraps.select("cohort").n_unique()
+
+        subset = self.bootstraps.filter(pl.col("gene").is_in(in_set))
+        if cohort_size is not None:
+            subset = subset.filter(pl.col("subset") == cohort_size)
+        total_tests = subset.select("cohort").n_unique()
         return (
-            self.bootstraps.filter(pl.col("gene").is_in(in_set))
-            .group_by("gene")
+            subset.group_by("gene")
             .agg(pl.col("cohort").len().alias("num_tests"))
-            .with_columns((pl.col("num_tests") / self.total_tests).alias("frac_tests"))
+            .with_columns((pl.col("num_tests") / total_tests).alias("frac_tests"))
             .sort("frac_tests")
+        )
+
+    def _measure_subset_recovery(self) -> pl.DataFrame:
+        """
+        Calculate how often a hit in the standard is observed across all bootstraps of a specific size.
+
+        Returns:
+            pl.DataFrame: DataFrame containing hit recovery information for each gene in each subset size.
+        """
+        print("Measuring subset recovery...")
+        cohort_sizes = self.bootstraps.select("subset").to_series().unique()
+        return pl.concat(
+            [
+                self._measure_hit_recovery(cohort_size).with_columns(
+                    pl.lit(cohort_size).alias("subset")
+                )
+                for cohort_size in cohort_sizes
+            ]
         )
 
     def export_table(self, table: str, filename: str, separator="\t", **kwargs):
@@ -178,6 +204,8 @@ class BootstrapAnalysis:
             dataframe = self.overlaps
         elif table == "recovery":
             dataframe = self.recovery
+        elif table == "subset_recovery":
+            dataframe = self.subset_recovery
         else:
             raise ValueError(f"Unknown table name: {table}")
 
