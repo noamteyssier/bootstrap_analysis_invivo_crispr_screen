@@ -32,6 +32,7 @@ class Rescreener:
         use_product: bool = False,
         min_base_mean: Optional[int] = None,
         overwrite: bool = False,
+        with_replacement: bool = True,
         n_threads: int = -1,
     ):
         """
@@ -44,7 +45,10 @@ class Rescreener:
             exclude_samples (Optional[List[str]], optional): List of samples to exclude. Defaults to None.
             prefix (str, optional): Prefix for output directory. Defaults to "bootstraps".
             aggregation_method (str, optional): Aggregation method for the CRISPR screen analysis. Defaults to "geopagg".
+            use_product (bool, optional): Whether to use the gene scores instead of p-values in crispr_screen. Defaults to False.
+            min_base_mean (Optional[int], optional): Minimum base mean for filtering. Defaults to None.
             overwrite (bool, optional): Whether to overwrite existing output. Defaults to False.
+            with_replacement (bool, optional): Whether to sample with replacement. Defaults to True.
         """
         self.table_path = table_path
         self._columns = self._fetch_columns()
@@ -61,6 +65,7 @@ class Rescreener:
         self.aggregation_method = aggregation_method
         self.use_product = use_product
         self.min_base_mean = min_base_mean
+        self.with_replacement = with_replacement
         self.n_threads = n_threads
 
         self._validate_crispr_screen()
@@ -230,7 +235,7 @@ class Rescreener:
         for subset_size in np.arange(1, len(self.test_libraries), step_value):
             for rep_index in range(num_reps):
                 treatment_subset = np.random.choice(
-                    self.test_libraries, subset_size, replace=True
+                    self.test_libraries, subset_size, replace=self.with_replacement
                 ).tolist()
                 name = f"{SUBSET_NAME_PREFIX}_{subset_size}_{rep_index}"
                 args_list.append((name, treatment_subset))
