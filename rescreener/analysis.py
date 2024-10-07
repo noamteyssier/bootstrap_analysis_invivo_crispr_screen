@@ -23,6 +23,7 @@ class BootstrapAnalysis:
         directory: str,
         standard: Optional[str] = None,
         fdr: float = 0.1,
+        ignore_amalgams: bool = True,
     ):
         """
         Initialize the BootstrapAnalysis object.
@@ -31,11 +32,13 @@ class BootstrapAnalysis:
             directory (str): Path to the directory containing full and subset analysis results.
             standard (Optional[str], optional): Path to a file containing standard hits. Defaults to None.
             fdr (float, optional): False Discovery Rate threshold for considering hits. Defaults to 0.1.
+            ignore_amalgams (bool, optional): Whether to ignore amalgamated hits. Defaults to True.
         """
         (self.directory, self.full_dir, self.subset_dir) = self._validate_directory(
             directory
         )
         self.fdr = fdr
+        self.ignore_amalgams = ignore_amalgams
 
         # Read the standard (either a secondary provided hits file or generated from the full directory)
         self.standard = self._load_standard(standard)
@@ -99,7 +102,9 @@ class BootstrapAnalysis:
                 self.full_dir, f"{FULL_NAME_PREFIX}.gene_results.tsv"
             )
 
-        return BootstrapAnalysis._load_hits_dataframe(filename, self.fdr)
+        return BootstrapAnalysis._load_hits_dataframe(
+            filename, self.fdr, self.ignore_amalgams
+        )
 
     def _load_bootstraps(self) -> pl.DataFrame:
         """
@@ -215,6 +220,7 @@ class BootstrapAnalysis:
     def _load_hits_dataframe(
         filename: str,
         fdr: float,
+        ignore_amalgams: bool = True,
     ) -> pl.DataFrame:
         """
         Load a hits dataframe from a file and filter based on FDR.
@@ -226,4 +232,7 @@ class BootstrapAnalysis:
         Returns:
             pl.DataFrame: Filtered DataFrame containing hits.
         """
-        return pl.read_csv(filename, separator="\t").filter(pl.col("fdr") < fdr)
+        frame = pl.read_csv(filename, separator="\t").filter(pl.col("fdr") < fdr)
+        if ignore_amalgams:
+            frame = frame.filter(~pl.col("gene").str.starts_with("amalgam"))
+        return frame
